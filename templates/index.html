@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Performance Prediction System</title>
+<style>
+  :root {
+    --primary: #2563eb; --primary-dark: #1d4ed8; --success: #16a34a;
+    --danger: #dc2626; --warning: #d97706; --bg: #f1f5f9;
+    --card: #ffffff; --border: #e2e8f0; --text: #1e293b; --muted: #64748b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+    color: #fff; padding: 24px 32px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  header .logo { font-size: 2rem; }
+  header h1 { font-size: 1.5rem; font-weight: 700; }
+  header p  { font-size: 0.85rem; opacity: 0.8; margin-top: 2px; }
+  .badge { background: rgba(255,255,255,0.2); border-radius: 20px;
+           padding: 3px 12px; font-size: 0.75rem; display: inline-block; margin-top: 4px; }
+
+  /* ── Layout ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
+  .grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 24px; }
+  @media(max-width:800px){ .grid { grid-template-columns: 1fr; } }
+
+  /* ── Cards ── */
+  .card { background: var(--card); border-radius: 12px; padding: 24px;
+          border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+  .card h2 { font-size: 1rem; font-weight: 600; color: var(--primary);
+             border-bottom: 2px solid var(--border); padding-bottom: 10px; margin-bottom: 16px; }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .tab { padding: 7px 16px; border-radius: 8px; border: 1px solid var(--border);
+         background: var(--card); cursor: pointer; font-size: 0.85rem; font-weight: 500;
+         transition: all .2s; }
+  .tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+  /* ── Form ── */
+  .section { display: none; }
+  .section.active { display: block; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media(max-width:500px){ .form-grid { grid-template-columns: 1fr; } }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 0.78rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+  .field input, .field select {
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+    font-size: 0.9rem; background: #f8fafc; transition: border .2s;
+  }
+  .field input:focus, .field select:focus {
+    outline: none; border-color: var(--primary); background: #fff;
+    box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+  }
+  .btn-predict {
+    width: 100%; margin-top: 20px; padding: 13px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff; border: none; border-radius: 10px; font-size: 1rem;
+    font-weight: 600; cursor: pointer; transition: transform .15s, box-shadow .15s;
+  }
+  .btn-predict:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(37,99,235,.35); }
+  .btn-predict:active { transform: translateY(0); }
+
+  /* ── Result Panel ── */
+  #result-panel { display: none; }
+  .result-verdict {
+    text-align: center; padding: 20px 16px; border-radius: 12px; margin-bottom: 16px;
+  }
+  .result-verdict.pass { background: #dcfce7; border: 2px solid #16a34a; }
+  .result-verdict.fail { background: #fee2e2; border: 2px solid #dc2626; }
+  .verdict-icon { font-size: 2.5rem; }
+  .verdict-label { font-size: 1.6rem; font-weight: 800; margin: 4px 0; }
+  .verdict-label.pass { color: var(--success); }
+  .verdict-label.fail { color: var(--danger); }
+  .risk-badge {
+    display: inline-block; padding: 3px 14px; border-radius: 20px;
+    font-size: 0.8rem; font-weight: 600;
+  }
+  .risk-low      { background:#dcfce7; color:#166534; }
+  .risk-moderate { background:#fef9c3; color:#713f12; }
+  .risk-high     { background:#fee2e2; color:#991b1b; }
+
+  /* Probability bars */
+  .prob-row { margin-bottom: 10px; }
+  .prob-label { display: flex; justify-content: space-between; font-size: 0.82rem;
+                font-weight: 600; margin-bottom: 4px; }
+  .bar-track { background: #e2e8f0; border-radius: 99px; height: 10px; overflow: hidden; }
+  .bar-fill  { height: 100%; border-radius: 99px; transition: width 1s ease; }
+  .bar-pass  { background: linear-gradient(90deg,#22c55e,#16a34a); }
+  .bar-fail  { background: linear-gradient(90deg,#f87171,#dc2626); }
+
+  /* Factors */
+  .factor-item { display: flex; justify-content: space-between; align-items: center;
+                 padding: 8px 12px; background: #f8fafc; border-radius: 8px; margin-bottom: 6px;
+                 border-left: 3px solid var(--primary); font-size: 0.85rem; }
+  .impact-high     { color: var(--danger); font-weight: 700; }
+  .impact-moderate { color: var(--warning); font-weight: 700; }
+  .impact-positive { color: var(--success); font-weight: 700; }
+
+  /* Model stats */
+  .stats-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+  .stats-table th { background: #f1f5f9; padding: 8px 10px; text-align: left;
+                    font-weight: 600; color: var(--muted); font-size: 0.75rem; text-transform: uppercase; }
+  .stats-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .stats-table tr:last-child td { border-bottom: none; }
+  .stats-table .champion { background: #eff6ff; font-weight: 600; color: var(--primary); }
+  .star { color: #f59e0b; }
+
+  /* Info pill */
+  .info-pill { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
+               padding: 10px 14px; font-size: 0.82rem; color: #1e40af; margin-top: 12px; }
+  .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid #fff;
+             border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error-msg { color: var(--danger); background: #fee2e2; border-radius: 8px;
+               padding: 10px 14px; font-size: 0.85rem; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🎓</div>
+  <div>
+    <h1>Student Academic Performance Prediction</h1>
+    <p>UCI Student Dataset · Gradient Boosting · 90.77% Accuracy · AUC 0.957</p>
+    <span class="badge">⭐ Best Model Selected Automatically</span>
+  </div>
+</header>
+
+<div class="container">
+  <div class="grid">
+
+    <!-- ── Left: Input Form ── -->
+    <div class="card">
+      <h2>📋 Student Information</h2>
+
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('academic')">📚 Academic</button>
+        <button class="tab" onclick="switchTab('personal')">👤 Personal</button>
+        <button class="tab" onclick="switchTab('family')">🏠 Family</button>
+        <button class="tab" onclick="switchTab('behaviour')">🏃 Behaviour</button>
+      </div>
+
+      <!-- Academic -->
+      <div class="section active" id="tab-academic">
+        <div class="form-grid">
+          <div class="field">
+            <label>School</label>
+            <select id="school"><option value="GP">GP (Gabriel Pereira)</option><option value="MS">MS (Mousinho da Silveira)</option></select>
+          </div>
+          <div class="field">
+            <label>Period 1 Grade (G1) 0–20</label>
+            <input type="number" id="G1" min="0" max="20" value="11" />
+          </div>
+          <div class="field">
+            <label>Period 2 Grade (G2) 0–20</label>
+            <input type="number" id="G2" min="0" max="20" value="11" />
+          </div>
+          <div class="field">
+            <label>Study Time (1=low, 4=high)</label>
+            <select id="studytime">
+              <option value="1">1 – &lt;2 hrs/week</option>
+              <option value="2" selected>2 – 2–5 hrs/week</option>
+              <option value="3">3 – 5–10 hrs/week</option>
+              <option value="4">4 – &gt;10 hrs/week</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Prior Failures</label>
+            <select id="failures">
+              <option value="0" selected>0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Absences (days)</label>
+            <input type="number" id="absences" min="0" max="32" value="3" />
+          </div>
+          <div class="field">
+            <label>Extra School Support</label>
+            <select id="schoolsup"><option value="no" selected>No</option><option value="yes">Yes</option></select>
+          </div>
+          <div class="field">
+            <label>Extra Paid Classes</label>
+            <select id="paid"><option value="no" selected>No</option><option value="yes">Yes</option></select>
+          </div>
+          <div class="field">
+            <label>Aims for Higher Education</label>
+            <select id="higher"><option value="yes" selected>Yes</option><option value="no">No</option></select>
+          </div>
+          <div class="field">
+            <label>School Choice Reason</label>
+            <select id="reason">
+              <option value="reputation" selected>Reputation</option>
+              <option value="home">Close to Home</option>
+              <option value="course">Course Preference</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Personal -->
+      <div class="section" id="tab-personal">
+        <div class="form-grid">
+          <div class="field">
+            <label>Sex</label>
+            <select id="sex"><option value="F">Female</option><option value="M">Male</option></select>
+          </div>
+          <div class="field">
+            <label>Age</label>
+            <input type="number" id="age" min="15" max="22" value="17" />
+          </div>
+          <div class="field">
+            <label>Address</label>
+            <select id="address"><option value="U" selected>Urban</option><option value="R">Rural</option></select>
+          </div>
+          <div class="field">
+            <label>Travel Time to School</label>
+            <select id="traveltime">
+              <option value="1" selected>1 – &lt;15 min</option>
+              <option value="2">2 – 15–30 min</option>
+              <option value="3">3 – 30–60 min</option>
+              <option value="4">4 – &gt;1 hour</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Extra-curricular Activities</label>
+            <select id="activities"><option value="no" selected>No</option><option value="yes">Yes</option></select>
+          </div>
+          <div class="field">
+            <label>Has Internet at Home</label>
+            <select id="internet"><option value="yes" selected>Yes</option><option value="no">No</option></select>
+          </div>
+          <div class="field">
+            <label>In a Romantic Relationship</label>
+            <select id="romantic"><option value="no" selected>No</option><option value="yes">Yes</option></select>
+          </div>
+          <div class="field">
+            <label>Free Time (1=low, 5=high)</label>
+            <input type="number" id="freetime" min="1" max="5" value="3" />
+          </div>
+          <div class="field">
+            <label>Going Out with Friends (1–5)</label>
+            <input type="number" id="goout" min="1" max="5" value="3" />
+          </div>
+          <div class="field">
+            <label>Weekend Alcohol Use (1–5)</label>
+            <input type="number" id="Walc" min="1" max="5" value="1" />
+          </div>
+          <div class="field">
+            <label>Health Status (1=bad, 5=excellent)</label>
+            <input type="number" id="health" min="1" max="5" value="3" />
+          </div>
+          <div class="field">
+            <label>Attended Nursery School</label>
+            <select id="nursery"><option value="yes" selected>Yes</option><option value="no">No</option></select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Family -->
+      <div class="section" id="tab-family">
+        <div class="form-grid">
+          <div class="field">
+            <label>Family Size</label>
+            <select id="famsize"><option value="GT3" selected>GT3 (&gt;3 members)</option><option value="LE3">LE3 (≤3 members)</option></select>
+          </div>
+          <div class="field">
+            <label>Parents' Cohabitation</label>
+            <select id="Pstatus"><option value="T" selected>Together</option><option value="A">Apart</option></select>
+          </div>
+          <div class="field">
+            <label>Mother's Education (0–4)</label>
+            <select id="Medu">
+              <option value="0">0 – None</option>
+              <option value="1">1 – Primary (4th grade)</option>
+              <option value="2">2 – 5th–9th grade</option>
+              <option value="3" selected>3 – Secondary</option>
+              <option value="4">4 – Higher</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Father's Education (0–4)</label>
+            <select id="Fedu">
+              <option value="0">0 – None</option>
+              <option value="1">1 – Primary</option>
+              <option value="2" selected>2 – 5th–9th grade</option>
+              <option value="3">3 – Secondary</option>
+              <option value="4">4 – Higher</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Mother's Job</label>
+            <select id="Mjob">
+              <option value="teacher">Teacher</option>
+              <option value="health">Health</option>
+              <option value="services" selected>Services</option>
+              <option value="at_home">At Home</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Father's Job</label>
+            <select id="Fjob">
+              <option value="teacher">Teacher</option>
+              <option value="health">Health</option>
+              <option value="services" selected>Services</option>
+              <option value="at_home">At Home</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Guardian</label>
+            <select id="guardian"><option value="mother" selected>Mother</option><option value="father">Father</option><option value="other">Other</option></select>
+          </div>
+          <div class="field">
+            <label>Family Support</label>
+            <select id="famsup"><option value="yes" selected>Yes</option><option value="no">No</option></select>
+          </div>
+          <div class="field">
+            <label>Family Relationship Quality (1–5)</label>
+            <input type="number" id="famrel" min="1" max="5" value="4" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Behaviour -->
+      <div class="section" id="tab-behaviour">
+        <div class="info-pill">
+          ℹ️ These social/behavioural features have lower predictive weight than academic grades, but are included in the full 31-feature model.
+        </div>
+        <div class="form-grid" style="margin-top:14px">
+          <div class="field">
+            <label>Going Out (1=rarely, 5=often)</label>
+            <input type="number" id="goout2" min="1" max="5" value="3" disabled style="opacity:.6" />
+          </div>
+          <div class="field">
+            <label>Weekend Alcohol (mirrored)</label>
+            <input type="number" id="Walc2" min="1" max="5" value="1" disabled style="opacity:.6" />
+          </div>
+        </div>
+        <p style="font-size:.8rem;color:var(--muted);margin-top:10px">These fields mirror values from the Personal tab. Adjust them there.</p>
+      </div>
+
+      <button class="btn-predict" id="predict-btn" onclick="predict()">
+        🔍 Predict Performance
+      </button>
+      <div id="error-msg" class="error-msg" style="display:none"></div>
+    </div>
+
+    <!-- ── Right: Results ── -->
+    <div>
+      <!-- Result card -->
+      <div class="card" id="result-panel">
+        <h2>🎯 Prediction Result</h2>
+        <div class="result-verdict" id="verdict-box">
+          <div class="verdict-icon" id="verdict-icon"></div>
+          <div class="verdict-label" id="verdict-label"></div>
+          <span class="risk-badge" id="risk-badge"></span>
+        </div>
+
+        <div class="prob-row">
+          <div class="prob-label"><span>✅ Pass Probability</span><span id="pass-pct"></span></div>
+          <div class="bar-track"><div class="bar-fill bar-pass" id="bar-pass" style="width:0%"></div></div>
+        </div>
+        <div class="prob-row">
+          <div class="prob-label"><span>❌ Fail Probability</span><span id="fail-pct"></span></div>
+          <div class="bar-track"><div class="bar-fill bar-fail" id="bar-fail" style="width:0%"></div></div>
+        </div>
+
+        <h2 style="margin-top:18px">⚠️ Key Factors</h2>
+        <div id="factors-list"></div>
+
+        <div class="info-pill" id="advice-box" style="margin-top:14px"></div>
+      </div>
+
+      <!-- Model stats card -->
+      <div class="card" style="margin-top:20px">
+        <h2>📊 Model Comparison (All 5 Models)</h2>
+        <div id="stats-loading" style="color:var(--muted);font-size:.85rem">Loading model stats…</div>
+        <table class="stats-table" id="stats-table" style="display:none">
+          <thead>
+            <tr>
+              <th>Model</th><th>Accuracy</th><th>ROC-AUC</th><th>Macro F1</th><th>Fail Recall</th>
+            </tr>
+          </thead>
+          <tbody id="stats-body"></tbody>
+        </table>
+        <div class="info-pill" style="margin-top:12px">
+          ⭐ <strong>Gradient Boosting</strong> selected as the deployment model — highest Accuracy, AUC, and Macro F1 simultaneously.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function collectData() {
+  const ids = ['school','sex','age','address','famsize','Pstatus','Medu','Fedu',
+               'Mjob','Fjob','reason','guardian','traveltime','studytime','failures',
+               'schoolsup','famsup','paid','activities','nursery','higher','internet',
+               'romantic','famrel','freetime','goout','Walc','health','absences','G1','G2'];
+  const d = {};
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (!el) { d[id] = 0; continue; }
+    d[id] = el.tagName === 'SELECT' ? el.value : parseFloat(el.value) || 0;
+  }
+  return d;
+}
+
+async function predict() {
+  const btn = document.getElementById('predict-btn');
+  const errEl = document.getElementById('error-msg');
+  errEl.style.display = 'none';
+  btn.innerHTML = '<span class="spinner"></span> Predicting…';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch('/predict', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(collectData())
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    showResult(data);
+  } catch(e) {
+    errEl.textContent = '⚠️ ' + e.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.innerHTML = '🔍 Predict Performance';
+    btn.disabled = false;
+  }
+}
+
+function showResult(d) {
+  const panel = document.getElementById('result-panel');
+  panel.style.display = 'block';
+  panel.scrollIntoView({behavior:'smooth', block:'start'});
+
+  const isPass = d.prediction === 'Pass';
+  const box = document.getElementById('verdict-box');
+  box.className = 'result-verdict ' + (isPass ? 'pass' : 'fail');
+  document.getElementById('verdict-icon').textContent = isPass ? '🎉' : '⚠️';
+  const lbl = document.getElementById('verdict-label');
+  lbl.textContent = d.prediction;
+  lbl.className = 'verdict-label ' + (isPass ? 'pass' : 'fail');
+
+  const rb = document.getElementById('risk-badge');
+  rb.textContent = d.risk_level;
+  rb.className = 'risk-badge ' + {
+    'Low Risk':'risk-low','Moderate Risk':'risk-moderate','High Risk':'risk-high'
+  }[d.risk_level];
+
+  document.getElementById('pass-pct').textContent = d.pass_probability + '%';
+  document.getElementById('fail-pct').textContent = d.fail_probability + '%';
+  setTimeout(() => {
+    document.getElementById('bar-pass').style.width = d.pass_probability + '%';
+    document.getElementById('bar-fail').style.width = d.fail_probability + '%';
+  }, 50);
+
+  const fl = document.getElementById('factors-list');
+  fl.innerHTML = '';
+  for (const f of d.top_factors) {
+    const cls = f.impact === 'High' ? 'impact-high' : f.impact === 'Moderate' ? 'impact-moderate' : 'impact-positive';
+    fl.innerHTML += `<div class="factor-item"><span>${f.factor}</span><span class="${cls}">${f.impact}</span></div>`;
+  }
+
+  const advice = document.getElementById('advice-box');
+  if (isPass) {
+    advice.textContent = '✅ This student is predicted to pass. Monitor Period 1 & 2 grades to maintain trajectory.';
+  } else {
+    advice.textContent = '🚨 This student is at risk of failing. Immediate intervention recommended — focus on grade improvement and reducing absences.';
+  }
+}
+
+// Load model stats
+async function loadStats() {
+  try {
+    const r = await fetch('/model-stats');
+    const data = await r.json();
+    const order = ['Logistic Regression','Decision Tree','Random Forest','Gradient Boosting','MLP Neural Network'];
+    const tbody = document.getElementById('stats-body');
+    for (const name of order) {
+      const m = data[name];
+      const isChamp = name === 'Gradient Boosting';
+      tbody.innerHTML += `<tr class="${isChamp?'champion':''}">
+        <td>${isChamp ? '<span class="star">⭐</span> ' : ''}${name}</td>
+        <td>${m.accuracy.toFixed(2)}%</td>
+        <td>${m.roc_auc}</td>
+        <td>${m.macro_f1.toFixed(2)}%</td>
+        <td>${m.fail_recall.toFixed(2)}%</td>
+      </tr>`;
+    }
+    document.getElementById('stats-loading').style.display = 'none';
+    document.getElementById('stats-table').style.display = 'table';
+  } catch(e) { document.getElementById('stats-loading').textContent = 'Could not load stats.'; }
+}
+loadStats();
+</script>
+</body>
+</html>
